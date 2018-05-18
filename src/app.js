@@ -12,7 +12,20 @@ const app = express();
 //使用req.session的中间件
 
 // Use the session middleware
-app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 60000 }}))
+app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 10*60000 }}))
+
+
+ app.all("*",(req,res,next)=>{
+    if(req.url.includes("studentManager")){
+        if(req.session.userName){
+            next()
+        }else{
+            res.send("<script>alert('请先登录!');window.location='/account/login'</script>")
+        }
+    }else{
+        next()
+    }
+})
 
 //处理注册页面
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -27,6 +40,7 @@ app.use('/account',accountRouter);
 
 const studentRouter = require(path.join(__dirname,'./routers/studentRouter.js'));
 app.use('/studentManager',studentRouter);
+
 
 
 

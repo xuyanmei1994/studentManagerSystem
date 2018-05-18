@@ -1,15 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const captchapng = require('captchapng');
-
-const MongoClient = require('mongodb').MongoClient;
- // Connection URL
- const url = 'mongodb://localhost:27017';
-
- // Database Name
- const dbName = 'test';
-
-
+const dataBaseTool = require(path.join(__dirname, '../tool/dataBaseTool.js'));
 
 
 //处理登录界面
@@ -23,10 +15,11 @@ module.exports.getLoginPage = (req, res) => {
 
 
 //处理图片验证码
-let vcode;
+
 module.exports.getVcode = (req, res) => {
 
-    vcode =parseInt(Math.random() * 9000 + 1000);
+    const vcode = parseInt(Math.random() * 9000 + 1000);
+    req.session.vcode = vcode;//保存验证码到浏览器的session里
     var p = new captchapng(80, 30, vcode); // width,height,numeric captcha
     p.color(0, 0, 0, 0);  // First color: background (red, green, blue, alpha)
     p.color(80, 80, 80, 255); // Second color: paint (red, green, blue, alpha)
@@ -53,68 +46,99 @@ module.exports.register = (req, res) => {
     }
 
     // console.log(req.body);
-   
 
-    // Use connect method to connect to the server
-    MongoClient.connect(url, function (err, client) {
 
-        const db = client.db(dbName);
-        const collection = db.collection('accountInfo');
-        collection.findOne({username:req.body.username},function(err, docs) {
-            if(docs==null){
-                collection.insertOne(req.body, (err, backdata)=> {
-                    if(err){
-                        result.status=2;
-                        result.message='注册失败';
-                    }
-                    client.close();
-                    res.json(result);
-                  });
-            }else {
-                client.close();
-                result.status=1;
-                result.message='用户名已经存在';
+    dataBaseTool.getOne('accountInfo', { username: req.body.username }, (err, doc) => {
+        if (doc == null) {
+
+            dataBaseTool.insertOne('accountInfo', req.body, (err, backdata) => {
+                if (err) {
+                    // console.log(err);
+                    result.status = 2;
+                    result.message = '注册失败';
+                }
                 res.json(result);
-            }
-          });
-    });
+            })
+        } else {
+            result.status = 1;
+            result.message = '用户名已经存在';
+            res.json(result);
+        }
+    })
+
+    // collection.findOne({username:req.body.username},function(err, docs) {
+    //     if(docs==null){
+    //         collection.insertOne(req.body, (err, backdata)=> {
+    //             if(err){
+    //                 result.status=2;
+    //                 result.message='注册失败';
+    //             }
+    //             client.close();
+    //             res.json(result);
+    //           });
+    //     }else {
+    //         client.close();
+    //         result.status=1;
+    //         result.message='用户名已经存在';
+    //         res.json(result);
+    //     }
+    //   });
+
 }
 
 
 //处理登录页面
-module.exports.login = (req,res)=>{
+module.exports.login = (req, res) => {
     const result = {
-        status:0,
-        message:'登录成功'
+        status: 0,
+        message: '登录成功'
     }
 
-    req.session.vcode = vcode;//保存验证码到浏览器的session里
+    
 
     //校验验证码
-   if(req.session.vcode!=req.body.vcode){
+    if (req.session.vcode != req.body.vcode) {
         result.status = 1;
         result.message = '验证码错误';
         res.json(result);
         return;
-   }
+    }
 
-    MongoClient.connect(url, function(err, client) {
-       
-        const db = client.db(dbName);
-        const collection = db.collection('accountInfo');
-       
-        collection.findOne({username:req.body.username,password:req.body.password},function(err, docs) {
-            if(docs==null){
-                result.status=2;
-                result.message ='用户名或密码错误';
-                res.json(result);
-            }else{
-                client.close();
-                res.json(result);
-            }
-          });
-      });
+    dataBaseTool.getOne('accountInfo',{ username: req.body.username, password: req.body.password },(err,doc)=>{
+        if (doc == null) {
+            result.status = 2;
+            result.message = '用户名或密码错误';
+        } else {
+            req.session.userName = req.body.username;
+            
+        }
+        res.json(result);
+    })
+
+    // MongoClient.connect(url, function (err, client) {
+
+    //     const db = client.db(dbName);
+    //     const collection = db.collection('accountInfo');
+
+    //     collection.findOne({ username: req.body.username, password: req.body.password }, function (err, docs) {
+    //         if (docs == null) {
+    //             result.status = 2;
+    //             result.message = '用户名或密码错误';
+    //             res.json(result);
+    //         } else {
+    //             client.close();
+    //             res.json(result);
+    //         }
+    //     });
+    // });
 
 
     // res.json(result);
+}
+
+//登出
+exports.logout=(req,res)=>{
+    req.session.userName=null;
+    res.send("<script>window.location='/account/login'</script>")
+
 }

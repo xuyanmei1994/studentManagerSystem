@@ -15,5 +15,5 @@ accountRouter.post('/register',accountControl.register);
 
 accountRouter.post('/login',accountControl.login);
 
-
+accountRouter.get('/logout',accountControl.logout);
 module.exports=accountRouter;
